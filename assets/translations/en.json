@@ -1182,6 +1182,10 @@
           "label": "Display Mode",
           "description": "Render the battery as a graphical shape or a glyph icon"
         },
+        "font_size": {
+          "label": "Font Size",
+          "description": "Font size for the clock text, in logical pixels"
+        },
         "focused_color": {
           "label": "Focused Color",
           "description": "Color role used for the focused workspace; fixed hex colors are also supported"

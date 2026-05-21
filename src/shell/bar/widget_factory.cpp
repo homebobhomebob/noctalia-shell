@@ -175,7 +175,8 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
   if (type == "clock") {
     std::string format = wc != nullptr ? wc->getString("format", "{:%H:%M}") : std::string("{:%H:%M}");
     std::string verticalFormat = wc != nullptr ? wc->getString("vertical_format", "") : std::string{};
-    auto widget = std::make_unique<ClockWidget>(output, std::move(format), std::move(verticalFormat));
+    float fontSize = static_cast<float>(wc != nullptr ? wc->getDouble("font_size", 14.0) : 14.0);
+    auto widget = std::make_unique<ClockWidget>(output, std::move(format), std::move(verticalFormat), fontSize);
     widget->setContentScale(contentScale);
     return widget;
   }

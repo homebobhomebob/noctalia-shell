@@ -10,7 +10,8 @@ struct wl_output;
 
 class ClockWidget : public Widget {
 public:
-  ClockWidget(wl_output* output, std::string format = "{:%H:%M}", std::string verticalFormat = "");
+  ClockWidget(wl_output* output, std::string format = "{:%H:%M}", std::string verticalFormat = "",
+              float fontSize = 14.0f);
 
   void create() override;
 
@@ -21,6 +22,7 @@ private:
   wl_output* m_output = nullptr;
   std::string m_format;
   std::string m_verticalFormat;
+  float m_fontSize = 14.0f;
   bool m_isVertical = false;
   Label* m_label = nullptr;
   Label* m_secondaryLabel = nullptr;

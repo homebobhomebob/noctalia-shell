@@ -481,6 +481,7 @@ namespace settings {
     } else if (type == "clock") {
       add(stringSpec("format", "{:%H:%M}"));
       add(stringSpec("vertical_format"));
+      add(doubleSpec("font_size", static_cast<double>(Style::fontSizeBody), 6.0, 40.0, 1.0));
     } else if (type == "clipboard") {
       add(stringSpec("glyph", "clipboard"));
     } else if (type == "keyboard_layout") {

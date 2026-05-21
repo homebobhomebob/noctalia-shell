@@ -26,8 +26,9 @@ namespace {
   }
 } // namespace
 
-ClockWidget::ClockWidget(wl_output* output, std::string format, std::string verticalFormat)
-    : m_output(output), m_format(std::move(format)), m_verticalFormat(std::move(verticalFormat)) {}
+ClockWidget::ClockWidget(wl_output* output, std::string format, std::string verticalFormat, float fontSize)
+    : m_output(output), m_format(std::move(format)), m_verticalFormat(std::move(verticalFormat)),
+      m_fontSize(fontSize > 0.0f ? fontSize : Style::fontSizeBody) {}
 
 std::string ClockWidget::formatTimeText() const {
   if (!m_isVertical) {
@@ -72,7 +73,7 @@ void ClockWidget::create() {
   auto label = std::make_unique<Label>();
   label->setBold(true);
   label->setTextAlign(TextAlign::Center);
-  label->setFontSize(Style::fontSizeBody * m_contentScale);
+  label->setFontSize(m_fontSize * m_contentScale);
   // Clock text changes every minute and month names switch between descender
   // and descender-less forms (e.g. "Mar" ↔ "Apr"), so anchor the baseline to
   // a stable ink envelope instead of the current text's ink.
@@ -82,7 +83,7 @@ void ClockWidget::create() {
   auto secondaryLabel = std::make_unique<Label>();
   secondaryLabel->setBold(false);
   secondaryLabel->setTextAlign(TextAlign::Center);
-  secondaryLabel->setFontSize(Style::fontSizeBody * m_contentScale * kStackedSecondaryScale);
+  secondaryLabel->setFontSize(m_fontSize * m_contentScale * kStackedSecondaryScale);
   secondaryLabel->setVisible(false);
   m_secondaryLabel = secondaryLabel.get();
   area->addChild(std::move(secondaryLabel));
@@ -105,8 +106,8 @@ void ClockWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   const bool noCapsule = !barCapsuleSpec().enabled;
   const float stackedPrimaryScale = noCapsule ? kStackedPrimaryScaleNoCapsule : kStackedPrimaryScale;
   const float stackedSecondaryScale = noCapsule ? kStackedSecondaryScaleNoCapsule : kStackedSecondaryScale;
-  float primaryFontSize = Style::fontSizeBody * m_contentScale * (showSecondary ? stackedPrimaryScale : 1.0f);
-  float secondaryFontSize = Style::fontSizeBody * m_contentScale * stackedSecondaryScale;
+  float primaryFontSize = m_fontSize * m_contentScale * (showSecondary ? stackedPrimaryScale : 1.0f);
+  float secondaryFontSize = m_fontSize * m_contentScale * stackedSecondaryScale;
 
   // Horizontal clocks use single-line metrics unless the configured format
   // explicitly contains line breaks.

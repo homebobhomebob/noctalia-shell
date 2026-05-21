@@ -1,0 +1,117 @@
+diff --git a/assets/translations/en.json b/assets/translations/en.json
+index efd0b127c..c064af2f7 100644
+--- a/assets/translations/en.json
++++ b/assets/translations/en.json
+@@ -1182,6 +1182,10 @@
+           "label": "Display Mode",
+           "description": "Render the battery as a graphical shape or a glyph icon"
+         },
++        "font_size": {
++          "label": "Font Size",
++          "description": "Font size for the clock text, in logical pixels"
++        },
+         "focused_color": {
+           "label": "Focused Color",
+           "description": "Color role used for the focused workspace; fixed hex colors are also supported"
+diff --git a/example.toml b/example.toml
+index f3cb69b85..d0d5bb118 100644
+--- a/example.toml
++++ b/example.toml
+@@ -350,3 +350,4 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
+ # [widget.clock]
+ # format = "{:%H:%M}\n{:%d/%m}"
+ # vertical_format = "{:%H\n%M}"
++# font_size = 20.0
+diff --git a/src/shell/bar/widget_factory.cpp b/src/shell/bar/widget_factory.cpp
+index 075432034..19cb8d6ca 100644
+--- a/src/shell/bar/widget_factory.cpp
++++ b/src/shell/bar/widget_factory.cpp
+@@ -175,7 +175,8 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
+   if (type == "clock") {
+     std::string format = wc != nullptr ? wc->getString("format", "{:%H:%M}") : std::string("{:%H:%M}");
+     std::string verticalFormat = wc != nullptr ? wc->getString("vertical_format", "") : std::string{};
+-    auto widget = std::make_unique<ClockWidget>(output, std::move(format), std::move(verticalFormat));
++    float fontSize = static_cast<float>(wc != nullptr ? wc->getDouble("font_size", 14.0) : 14.0);
++    auto widget = std::make_unique<ClockWidget>(output, std::move(format), std::move(verticalFormat), fontSize);
+     widget->setContentScale(contentScale);
+     return widget;
+   }
+diff --git a/src/shell/bar/widgets/clock_widget.cpp b/src/shell/bar/widgets/clock_widget.cpp
+index 780676dfc..173ceac22 100644
+--- a/src/shell/bar/widgets/clock_widget.cpp
++++ b/src/shell/bar/widgets/clock_widget.cpp
+@@ -26,8 +26,9 @@ namespace {
+   }
+ } // namespace
+ 
+-ClockWidget::ClockWidget(wl_output* output, std::string format, std::string verticalFormat)
+-    : m_output(output), m_format(std::move(format)), m_verticalFormat(std::move(verticalFormat)) {}
++ClockWidget::ClockWidget(wl_output* output, std::string format, std::string verticalFormat, float fontSize)
++    : m_output(output), m_format(std::move(format)), m_verticalFormat(std::move(verticalFormat)),
++      m_fontSize(fontSize > 0.0f ? fontSize : Style::fontSizeBody) {}
+ 
+ std::string ClockWidget::formatTimeText() const {
+   if (!m_isVertical) {
+@@ -72,7 +73,7 @@ void ClockWidget::create() {
+   auto label = std::make_unique<Label>();
+   label->setBold(true);
+   label->setTextAlign(TextAlign::Center);
+-  label->setFontSize(Style::fontSizeBody * m_contentScale);
++  label->setFontSize(m_fontSize * m_contentScale);
+   // Clock text changes every minute and month names switch between descender
+   // and descender-less forms (e.g. "Mar" ↔ "Apr"), so anchor the baseline to
+   // a stable ink envelope instead of the current text's ink.
+@@ -82,7 +83,7 @@ void ClockWidget::create() {
+   auto secondaryLabel = std::make_unique<Label>();
+   secondaryLabel->setBold(false);
+   secondaryLabel->setTextAlign(TextAlign::Center);
+-  secondaryLabel->setFontSize(Style::fontSizeBody * m_contentScale * kStackedSecondaryScale);
++  secondaryLabel->setFontSize(m_fontSize * m_contentScale * kStackedSecondaryScale);
+   secondaryLabel->setVisible(false);
+   m_secondaryLabel = secondaryLabel.get();
+   area->addChild(std::move(secondaryLabel));
+@@ -105,8 +106,8 @@ void ClockWidget::doLayout(Renderer& renderer, float containerWidth, float conta
+   const bool noCapsule = !barCapsuleSpec().enabled;
+   const float stackedPrimaryScale = noCapsule ? kStackedPrimaryScaleNoCapsule : kStackedPrimaryScale;
+   const float stackedSecondaryScale = noCapsule ? kStackedSecondaryScaleNoCapsule : kStackedSecondaryScale;
+-  float primaryFontSize = Style::fontSizeBody * m_contentScale * (showSecondary ? stackedPrimaryScale : 1.0f);
+-  float secondaryFontSize = Style::fontSizeBody * m_contentScale * stackedSecondaryScale;
++  float primaryFontSize = m_fontSize * m_contentScale * (showSecondary ? stackedPrimaryScale : 1.0f);
++  float secondaryFontSize = m_fontSize * m_contentScale * stackedSecondaryScale;
+ 
+   // Horizontal clocks use single-line metrics unless the configured format
+   // explicitly contains line breaks.
+diff --git a/src/shell/bar/widgets/clock_widget.h b/src/shell/bar/widgets/clock_widget.h
+index 87d09503f..3a0b2220b 100644
+--- a/src/shell/bar/widgets/clock_widget.h
++++ b/src/shell/bar/widgets/clock_widget.h
+@@ -10,7 +10,8 @@ struct wl_output;
+ 
+ class ClockWidget : public Widget {
+ public:
+-  ClockWidget(wl_output* output, std::string format = "{:%H:%M}", std::string verticalFormat = "");
++  ClockWidget(wl_output* output, std::string format = "{:%H:%M}", std::string verticalFormat = "",
++              float fontSize = 14.0f);
+ 
+   void create() override;
+ 
+@@ -21,6 +22,7 @@ private:
+   wl_output* m_output = nullptr;
+   std::string m_format;
+   std::string m_verticalFormat;
++  float m_fontSize = 14.0f;
+   bool m_isVertical = false;
+   Label* m_label = nullptr;
+   Label* m_secondaryLabel = nullptr;
+diff --git a/src/shell/settings/widget_settings_registry.cpp b/src/shell/settings/widget_settings_registry.cpp
+index 6b0563684..e5b280eb1 100644
+--- a/src/shell/settings/widget_settings_registry.cpp
++++ b/src/shell/settings/widget_settings_registry.cpp
+@@ -481,6 +481,7 @@ namespace settings {
+     } else if (type == "clock") {
+       add(stringSpec("format", "{:%H:%M}"));
+       add(stringSpec("vertical_format"));
++      add(doubleSpec("font_size", static_cast<double>(Style::fontSizeBody), 6.0, 40.0, 1.0));
+     } else if (type == "clipboard") {
+       add(stringSpec("glyph", "clipboard"));
+     } else if (type == "keyboard_layout") {
